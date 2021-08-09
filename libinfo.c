@@ -27,9 +27,13 @@ int putinfo(sqlite3 *db, int id, char *key, char *value, char *type) {
 		perror("putinfo: Unable to get time");
 		return 1;
 	}
-	//snprintf(sql, max_request_size, "INSERT INTO Vars VALUES(%d, '%s', '%s', '%s', %ld);", id, key, value, type, time(NULL));
-	snprintf(sql, max_request_size, "INSERT INTO Vars(ROWID, Id, Key, Value, Type, Ts) VALUES(NULL, %d, '%s', '%s', '%s', %ld);", id, key, value, type, tp.tv_sec);
-	//snprintf(sql, max_request_size, "INSERT INTO Vars VALUES(%d, '%s', '%s', '%s', %ld.%ld);", id, key, value, type, tp.tv_sec, tp.tv_nsec);
+	if (snprintf(sql, max_request_size,
+		     "INSERT INTO Vars(ROWID, Id, Key, Value, Type, Ts)"
+		     "VALUES(NULL, %d, '%s', '%s', '%s', %ld);",
+		     id, key, value, type, tp.tv_sec) > max_request_size){
+		perror("putinfo: Wrong copy for request (overflow detected)");
+		return 1;
+	}
 
 	while ((rc = sqlite3_exec(db, sql, 0, 0, &err_msg)) == SQLITE_BUSY){
 		continue;
@@ -46,7 +50,7 @@ int putinfo(sqlite3 *db, int id, char *key, char *value, char *type) {
 }
 
 int get_result(info *result, int argc, char **argv, char **azColName) {
-	size_t len;
+	int len;
 	/* 2 fields per entry: Key value (argv[0]) and timestamp (argv[1])*/
 
 	len = strlen(argv[0]) + 1;
@@ -55,7 +59,7 @@ int get_result(info *result, int argc, char **argv, char **azColName) {
 		perror("Unable to alloc result->key buffer");
 		return 1;
 	}
-	if (strlcpy(result->key, argv[0], len) > len){
+	if (snprintf(result->key, len, argv[0]) > len){
 		perror("Wrong copy for key (overflow detected)");
 		return 1;
 	} 
@@ -68,7 +72,7 @@ int get_result(info *result, int argc, char **argv, char **azColName) {
 		perror("Unable to alloc result->value buffer");
 		return 1;
 	}
-	if (strlcpy(result->value, argv[1], len) > len){
+	if (snprintf(result->value, len, argv[1]) > len){
 		perror("Wrong copy for value (overflow detected)");
 		return 1;
 	} 
@@ -77,7 +81,9 @@ int get_result(info *result, int argc, char **argv, char **azColName) {
 	//bcopy(argv[1], result->value, strlen(argv[1])); 
 
 	for (int i = 0; i < argc; i++) {
-		printf("%s = %s (result=%s:%s)\n", azColName[i], argv[i] ? argv[i] : "NULL", result->key, result->value);
+		printf("%s = %s (result=%s:%s)\n", azColName[i],
+						   argv[i] ? argv[i] : "NULL",
+						   result->key, result->value);
 	}
 	/*result->prev = result;
 	result->next = (info *) malloc(sizeof(info));
@@ -110,7 +116,11 @@ int getinfo(sqlite3 *db, int id, char *key, char *type) {
 		perror("getinfo: Unable to alloc buffer");
 		return 1;
 	}
-	snprintf(sql, max_request_size, "SELECT Key, Value, Ts FROM Vars WHERE Type='%s' AND Key='%s' AND ID='%d' ORDER BY Ts LIMIT 1;", type, key, id);
+	if (snprintf(sql, max_request_size, "SELECT Key, Value, Ts FROM Vars WHERE Type='%s' AND Key='%s' AND ID='%d' ORDER BY Ts LIMIT 1;", type, key, id) > max_request_size){
+		perror("getinfo: Wrong copy for request (overflow detected)");
+		return 1;
+
+	}
 
 	results = (info *) malloc(sizeof(info));
 	if (results == NULL) {
@@ -186,7 +196,11 @@ int cleanup(sqlite3 *db, struct timespec timestamp){
 		return 1;
 	}
 	
-	snprintf(sql, max_request_size, "DELETE FROM Vars WHERE Ts < %ld;", timestamp.tv_sec);
+	if (snprintf(sql, max_request_size, "DELETE FROM Vars WHERE Ts < %ld;",
+		     timestamp.tv_sec) > max_request_size){
+		perror("cleanup: Wrong copy for request (overflow detected)");
+		return 1;
+	}
 
 	while ((rc = sqlite3_exec(db, sql, 0, 0, &err_msg)) == SQLITE_BUSY){
 		continue;

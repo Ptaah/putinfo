@@ -10,7 +10,7 @@ INC     = info.h
 
 OBJ	= $(LIBSRC:.c=.o)
 CFLAGS	= -O3 -fPIC -Wall -Werror -Wextra
-LDFLAGS = -L. -l $(NAME) -lsqlite3 -lbsd
+LDFLAGS = -L. -l $(NAME) -lsqlite3
 
 all	: $(BINNAME)
 

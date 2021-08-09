@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <bsd/string.h>
 #include <sqlite3.h>
 #include <errno.h>
 #include <time.h>

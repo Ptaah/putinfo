@@ -1,0 +1,6 @@
+*.a
+*.o
+*.so
+putinfo
+putinfo_static
+

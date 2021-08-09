@@ -24,9 +24,6 @@ void debug() {
  * - getinfo: Récupération de toutes les valeurs dans results.
  *   Les résultats doivent être stockés dans une  liste chainée.
  *
- * - main: Gestion du nettoyage de la base de donnée (suppression des entrées
- *   au delà d'un timestamp).
- *
  * - getinfo: Meilleure gestion de la récupération des résultats (Libération
  *   de la mémoire allouée pour results).
  *
@@ -41,6 +38,7 @@ struct _options {
     char *database;
     bool all;
     bool reset;
+    char *reset_timestamp;
     bool explain;
     char *variable;
     char *value;
@@ -51,7 +49,40 @@ void help(char **argv){
 	       "    -a --all:            Display all variables.\n"
 	       "    -d --database=<arg>: Database file.\n"
 	       "    -e --explain:        Explain what will be done.\n"
-	       "    -r --reset:          Reset all variables\n", argv[0]);
+	       "    -r --reset[=date]:   Reset all variables (only until date if given)\n"
+	       "                         multiple format are supported:\n"
+	       "                         * seconds since EPOC (date +%%s)\n"
+	       "                         * date Year-Month-Day (date +%%F)\n"
+	       "                         * date and time 'Y/M/D HH:MM:SS' (date +%%X)\n", argv[0]);
+}
+
+time_t convert_timestamp(char *timestamp){
+	char *res;
+	struct tm ts_to_tm;
+
+	/*If timestamp is a date*/
+	if ((res = strptime(options.reset_timestamp, "%F", &ts_to_tm)) != NULL){
+		if (*res == '\0'){
+			fprintf(stderr, "convert_timestamp: date detected\n");
+			return mktime(&ts_to_tm);
+		}
+	}
+	/*If timestamp is a date and a time*/
+	if ((res = strptime(options.reset_timestamp, "%F %X", &ts_to_tm)) != NULL){
+		if (*res == '\0'){
+			fprintf(stderr, "convert_timestamp: date and time detected\n");
+			return mktime(&ts_to_tm);
+		}
+	}
+	/*If timestamp is second since EPOC */
+	if ((res = strptime(timestamp, "%s", &ts_to_tm)) != NULL){
+		if (*res == '\0'){
+			fprintf(stderr, "convert_timestamp: seconds detected\n");
+			return mktime(&ts_to_tm);
+		}
+	}
+	errno = EINVAL;
+	return -1;
 }
 
 int main(int argc, char **argv) {
@@ -87,15 +118,16 @@ int main(int argc, char **argv) {
 		     break;
 		 // short option 'd'
 		 case 'd':
-		     options.database = optarg; // or copy it if you want to
+		     options.database = optarg;
 		     break;
 		 // short option 'e'
 		 case 'e':
-		     options.explain = true; // or copy it if you want to
+		     options.explain = true;
 		     break;
 		 // short option 'r'
 		 case 'r':
-		     options.reset = true; // or copy it if you want to
+		     options.reset = true;
+		     options.reset_timestamp = optarg;
 		     break;
 		 default:
 		     help(argv);
@@ -117,9 +149,9 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	printf("main: all=%d directory=%s explain=%d reset=%d variable=%s value=%s\n",
+	printf("main: all=%d directory=%s explain=%d reset=%d(%s) variable=%s value=%s\n",
 		options.all, options.database, options.explain, options.reset,
-		options.variable, options.value);
+		options.reset_timestamp, options.variable, options.value);
 
 	if (options.database == NULL){
 		if ((dbfile = secure_getenv("DBINFO")) == NULL)
@@ -149,9 +181,18 @@ int main(int argc, char **argv) {
 		if (options.all)
 			getinfo(db, 1, "%", "INTER");
 		if (options.reset) {
-			if (clock_gettime(CLOCK_MONOTONIC, &ts)) {
-				perror("main: Unable to get time");
-				return 1;
+			/* convert ftime argument to seconds since EPOC */
+			if (options.reset_timestamp != NULL){
+				ts.tv_sec = convert_timestamp(options.reset_timestamp);
+				if (ts.tv_sec == -1){
+					perror("main: invalid timestamp format");
+					return 1;
+				}
+			} else {
+				if (clock_gettime(CLOCK_REALTIME, &ts)) {
+					perror("main: Unable to get time");
+					return 1;
+				}
 			}
 			cleanup(db, ts);
 		}

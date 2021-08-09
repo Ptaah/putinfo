@@ -23,7 +23,7 @@ int putinfo(sqlite3 *db, int id, char *key, char *value, char *type) {
 		return 1;
 	}
 	
-	if (clock_gettime(CLOCK_MONOTONIC, &tp)) {
+	if (clock_gettime(CLOCK_REALTIME, &tp)) {
 		perror("putinfo: Unable to get time");
 		return 1;
 	}

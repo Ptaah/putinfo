@@ -47,7 +47,7 @@ struct _options {
 } options;
 
 void help(char **argv){
-	printf("%s [-a] [-d <directory>] [-e] [-r] variable [value]\n"
+	printf("%s [-a] [-d <database>] [-e] [-r] variable [value]\n"
 	       "    -a --all:            Display all variables.\n"
 	       "    -d --database=<arg>: Database file.\n"
 	       "    -e --explain:        Explain what will be done.\n"

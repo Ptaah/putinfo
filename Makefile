@@ -9,12 +9,12 @@ BINSRC  = putinfo.c
 INC     = info.h
 
 OBJ	= $(LIBSRC:.c=.o)
-CFLAGS	= -O3 -fPIC -Wall -Werror -Wextra
-LDFLAGS = -L. -l $(NAME) -lsqlite3
+CFLAGS	= -O3 -fPIC -Wall -Werror -Wextra -std=gnu99 -g
+LDFLAGS = -L. -l $(NAME) $(shell pkgconf --libs sqlite3)
 
-all	: $(BINNAME)
+all	: $(BINNAME) $(BINNAME)_static
 
-$(OBJ)  : $(LIBSRC) $(INC)
+$(OBJ)  : $(LIBSRC) $(INC) Makefile
 	$(CC) $(CFLAGS)	$< -c
 
 $(LIBNAME).a	: $(OBJ)
@@ -24,8 +24,9 @@ $(LIBNAME).a	: $(OBJ)
 $(LIBNAME).so	: $(OBJ)
 	$(CC) $< -o $(LIBNAME).so -shared $(CFLAGS)
 
-$(BINNAME) : $(LIBNAME).so
-	$(CC) $(CFLAGS) $(BINSRC) -o $(BINNAME) $(LDFLAGS)
+$(BINNAME) : $(LIBNAME).so $(BINSRC)
+	$(CC) $(CFLAGS) $(BINSRC) -o $@ $(LDFLAGS)
+
 
 clean	:
-	rm -f $(OBJ) $(BINNAME) $(LIBNAME).{a,so} *~ core *.core
+	rm -f $(OBJ) $(BINNAME) $(BINNAME)_static $(LIBNAME).{a,so} *~ core *.core

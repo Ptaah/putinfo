@@ -1,11 +1,13 @@
 #include "info.h"
 
+int debug = 0;
+
 int get_max_length(sqlite3 *db){
 	int max_request_size;
 	if ((max_request_size=sqlite3_limit(db, SQLITE_LIMIT_LENGTH, -1)) == -1) {
 		max_request_size= 1024;
 	}
-	/*printf("Maximum lenght of request: %d\n", max_request_size);*/
+	_log("Maximum lenght of request: %d\n", max_request_size);
 	return max_request_size;
 }
 
@@ -63,8 +65,6 @@ int get_result(info *result, int argc, char **argv, char **azColName) {
 		perror("Wrong copy for key (overflow detected)");
 		return 1;
 	} 
-	//strncpy(result->key, argv[0], strlen(argv[0]) + 1); 
-	//strcpy(result->key, argv[0]); 
 
 	len = strlen(argv[1]) + 1;
 	result->value = (char *) malloc(len * sizeof(char));
@@ -76,12 +76,9 @@ int get_result(info *result, int argc, char **argv, char **azColName) {
 		perror("Wrong copy for value (overflow detected)");
 		return 1;
 	} 
-	//strncpy(result->value, argv[1], strlen(argv[1]) + 1); 
-	//strcpy(result->value, argv[1]); 
-	//bcopy(argv[1], result->value, strlen(argv[1])); 
 
 	for (int i = 0; i < argc; i++) {
-		printf("%s = %s (result=%s:%s)\n", azColName[i],
+		_log("%s = %s (result=%s:%s)\n", azColName[i],
 						   argv[i] ? argv[i] : "NULL",
 						   result->key, result->value);
 	}
@@ -142,7 +139,7 @@ int getinfo(sqlite3 *db, int id, char *key, char *type) {
 		sqlite3_close(db);
 		rc = 1;
 	} else {
-		printf("getinfo: results: %p\n", results);
+		_log("getinfo: results: %p\n", results);
 		print_results(results);
 	}
 	free(sql);
@@ -240,7 +237,7 @@ sqlite3 * init_db(char *dbfile){
 		sqlite3_close(db);
 		return NULL;
 	}
-	printf("Init successfull\n");
+	_log("Init successfull\n");
 	return db;
 }
 

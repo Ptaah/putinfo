@@ -1,3 +1,6 @@
+#ifndef _LIBINFO_H_
+#define _LIBINFO_H_
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,5 +46,12 @@ sqlite3 * init_db(char *dbfile);
 int  getinfo(char *nom, char* valeur)
 int  putinfo(char *nom, char* valeur)
 */
+
+#define _log(fmt, ...) \
+        do { if (debug) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
+                                __LINE__, __func__, ##__VA_ARGS__); } while (0)
+
+extern int debug;
+#endif
 
 /*vim:noexpandtab:ts=8:sw=8*/

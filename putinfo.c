@@ -8,11 +8,7 @@
 
 #define DBFILE "/tmp/base.sqlite"
 
-#define MAX_ATTEMPTS 5
 
-void debug() {
-
-}
 
 /*
  * TODO:
@@ -28,8 +24,6 @@ void debug() {
  *   de la mémoire allouée pour results).
  *
  * - main: Vérifier la compatibilité avec l'API existante.
- *
- * - main: Ajouter des options log et debug
  *
  * - global: support d'etcd pour éviter des appels au système de fichiers
  * */
@@ -47,8 +41,10 @@ struct _options {
 void help(char **argv){
 	printf("%s [-a] [-d <database>] [-e] [-r] variable [value]\n"
 	       "    -a --all:            Display all variables.\n"
-	       "    -d --database=<arg>: Database file.\n"
+	       "    -d --database=<arg>: Database file (default "DBFILE" or $DBINFO).\n"
+	       "    -D --debug:          Show debug messages.\n"
 	       "    -e --explain:        Explain what will be done.\n"
+	       "    -h --help:           This help message.\n"
 	       "    -r --reset[=date]:   Reset all variables (only until date if given)\n"
 	       "                         multiple format are supported:\n"
 	       "                         * seconds since EPOC (date +%%s)\n"
@@ -101,13 +97,15 @@ int main(int argc, char **argv) {
 	static struct option long_options[] =
 	{
 	    {"all", no_argument, NULL, 'a'},
+	    {"debug", optional_argument, NULL, 'D'},
 	    {"dir", required_argument, NULL, 'd'},
 	    {"explain", no_argument, NULL, 'e'},
+	    {"help", no_argument, NULL, 'h'},
 	    {"reset", optional_argument, NULL, 'r'},
 	    {NULL, 0, NULL, 0}
 	};
 
-	while ((opt = getopt_long(argc, argv, "ad:erh", long_options, NULL)) != -1)
+	while ((opt = getopt_long(argc, argv, "ad:Derh", long_options, NULL)) != -1)
 	{
 	    // check to see if a single character or long option came through
 	    switch (opt)
@@ -120,9 +118,18 @@ int main(int argc, char **argv) {
 		 case 'd':
 		     options.database = optarg;
 		     break;
+		 // short option 'D'
+		 case 'D':
+		     debug ++;
+		     break;
 		 // short option 'e'
 		 case 'e':
 		     options.explain = true;
+		     break;
+		 // short option 'h'
+		 case 'h':
+		     help(argv);
+		     exit(0);
 		     break;
 		 // short option 'r'
 		 case 'r':
@@ -149,7 +156,7 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	printf("main: all=%d directory=%s explain=%d reset=%d(%s) variable=%s value=%s\n",
+	_log("main: all=%d directory=%s explain=%d reset=%d(%s) variable=%s value=%s\n",
 		options.all, options.database, options.explain, options.reset,
 		options.reset_timestamp, options.variable, options.value);
 
@@ -160,7 +167,7 @@ int main(int argc, char **argv) {
 		dbfile = options.database;
 	}
 
-	printf("main: opening db from: %s\n", dbfile);
+	_log("main: opening db from: %s\n", dbfile);
 
 	if (! check_db(dbfile)) {
 		db = init_db(dbfile);

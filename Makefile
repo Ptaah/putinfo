@@ -27,6 +27,8 @@ $(LIBNAME).so	: $(OBJ)
 $(BINNAME) : $(LIBNAME).so $(BINSRC)
 	$(CC) $(CFLAGS) $(BINSRC) -o $@ $(LDFLAGS)
 
+$(BINNAME)_static : $(LIBNAME).a $(BINSRC)
+	$(CC) $(CFLAGS) $(BINSRC) $(LIBNAME).a -o $@  $(shell pkgconf --libs --static sqlite3)
 
 clean	:
 	rm -f $(OBJ) $(BINNAME) $(BINNAME)_static $(LIBNAME).{a,so} *~ core *.core

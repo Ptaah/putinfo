@@ -2,6 +2,32 @@
 
 int debug = 0;
 
+info * alloc_info(void){
+	info *inf;
+	inf = (info *) malloc(sizeof(info));
+	if (inf == NULL) {
+		perror("Unable to alloc result->next buffer");
+		return NULL;
+	}
+	inf->key=NULL;
+	inf->value=NULL;
+	inf->next=NULL;
+	inf->prev=NULL;
+	inf->tag=NULL;
+
+	return inf;
+}
+
+void free_info(info *inf){
+	if (inf->key)
+		free(inf->key);
+	if (inf->value)
+		free(inf->value);
+	if (inf->tag)
+		free(inf->tag);
+	free(inf);
+}
+
 int get_max_length(sqlite3 *db){
 	int max_request_size;
 	if ((max_request_size=sqlite3_limit(db, SQLITE_LIMIT_LENGTH, -1)) == -1) {
@@ -11,7 +37,7 @@ int get_max_length(sqlite3 *db){
 	return max_request_size;
 }
 
-int putinfo(sqlite3 *db, int id, char *key, char *value, char *type) {
+int putinfo(sqlite3 *db, char *key, char *value, char *tag) {
 	char *err_msg = 0;
 	int rc;
 	int max_request_size;
@@ -30,9 +56,9 @@ int putinfo(sqlite3 *db, int id, char *key, char *value, char *type) {
 		return 1;
 	}
 	if (snprintf(sql, max_request_size,
-		     "INSERT INTO Vars(ROWID, Id, Key, Value, Type, Ts)"
-		     "VALUES(NULL, %d, '%s', '%s', '%s', %ld);",
-		     id, key, value, type, tp.tv_sec) > max_request_size){
+		     "INSERT INTO Vars(ROWID, Key, Value, Type, Ts)"
+		     "VALUES(NULL, '%s', '%s', '%s', %ld);",
+		     key, value, tag, tp.tv_sec) > max_request_size){
 		perror("putinfo: Wrong copy for request (overflow detected)");
 		return 1;
 	}
@@ -54,6 +80,10 @@ int putinfo(sqlite3 *db, int id, char *key, char *value, char *type) {
 int get_result(info *result, int argc, char **argv, char **azColName) {
 	int len;
 	/* 2 fields per entry: Key value (argv[0]) and timestamp (argv[1])*/
+
+	/* walk to the last result */
+	while (result->next != NULL)
+		result = result->next;
 
 	len = strlen(argv[0]) + 1;
 	result->key = (char *) malloc(len * sizeof(char));
@@ -82,25 +112,34 @@ int get_result(info *result, int argc, char **argv, char **azColName) {
 						   argv[i] ? argv[i] : "NULL",
 						   result->key, result->value);
 	}
-	/*result->prev = result;
-	result->next = (info *) malloc(sizeof(info));
+	result->next = alloc_info();
 	if (result->next == NULL) {
 		perror("Unable to alloc result->next buffer");
 		return 1;
 	}
-	result = result->next;*/
+	result->prev = result;
 	return 0;
 }
 
-void print_results(info *result){
+void free_results(info *result){
+	if (result){
+		free_results(result->next);
+		free_info(result);
+	}
+}
+
+void print_results(info *result, bool all){
 	info *walk = result;
-	while (walk){
-		printf("%s - %s\n", walk->key, walk->value);
+	while (walk->next != NULL){
+		if (all)
+			printf("%s %s\n", walk->key, walk->value);
+		else
+			printf("%s\n", walk->value);
 		walk = walk->next;
 	}
 }
 
-int getinfo(sqlite3 *db, int id, char *key, char *type) {
+int getinfo(sqlite3 *db, char *key, char *tag) {
 	info *results = NULL;
 	char *err_msg = 0;
 	char *sql;
@@ -113,24 +152,23 @@ int getinfo(sqlite3 *db, int id, char *key, char *type) {
 		perror("getinfo: Unable to alloc buffer");
 		return 1;
 	}
-	if (snprintf(sql, max_request_size, "SELECT Key, Value, Ts FROM Vars WHERE Type='%s' AND Key='%s' AND ID='%d' ORDER BY Ts LIMIT 1;", type, key, id) > max_request_size){
+	if (snprintf(sql, max_request_size,
+		     "SELECT Key, Value, Max(Ts) FROM Vars " \
+		     "WHERE Type='%s' AND Key LIKE'%s' group by key;",
+		     tag, key) > max_request_size){
 		perror("getinfo: Wrong copy for request (overflow detected)");
 		return 1;
 
 	}
 
-	results = (info *) malloc(sizeof(info));
+	results = alloc_info();
 	if (results == NULL) {
 		perror("Unable to alloc buffer");
 		return 1;
 	}
-	results->key=NULL;
-	results->value=NULL;
-	results->next=NULL;
-	results->prev=NULL;
-	results->type=NULL;
 
-	while ((rc = sqlite3_exec(db, sql, (void *) get_result, results, &err_msg)) == SQLITE_BUSY){
+	while ((rc = sqlite3_exec(db, sql, (void *) get_result,
+				  results, &err_msg)) == SQLITE_BUSY){
 		continue;
 	}
 	if (rc != SQLITE_OK ) {
@@ -140,7 +178,8 @@ int getinfo(sqlite3 *db, int id, char *key, char *type) {
 		rc = 1;
 	} else {
 		_log("getinfo: results: %p\n", results);
-		print_results(results);
+		print_results(results, !strncmp(key, "%\0", 2));
+		free_results(results);
 	}
 	free(sql);
 	return rc;
@@ -227,7 +266,8 @@ sqlite3 * init_db(char *dbfile){
 	}
 	
 	char *sql = "DROP TABLE IF EXISTS Vars;"
-		    "CREATE TABLE Vars(rowid INT PRIMARY KEY, Id INT, Key TEXT, Value TEXT, Type TEXT, Ts BIGINT);";
+		    "CREATE TABLE Vars(rowid INT PRIMARY KEY, " \
+		    "Key TEXT, Value TEXT, Type TEXT, Ts BIGINT);";
 
 	rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
 

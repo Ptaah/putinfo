@@ -2,7 +2,6 @@
 
 #include <stdbool.h>
 #include <unistd.h>
-
 #include <getopt.h>
 #include "info.h"
 
@@ -13,15 +12,9 @@
 /*
  * TODO:
  * - main: Gestion de l'initialisation de la base de donnée sqlite
- *   (voir si la table existe avant de l'initialiser).
+ *   . Vérifier le schéma de la base
  *
  * - putinfo: Meilleurs résolution du timestamp en utilisation clock_gettime.
- *
- * - getinfo: Récupération de toutes les valeurs dans results.
- *   Les résultats doivent être stockés dans une  liste chainée.
- *
- * - getinfo: Meilleure gestion de la récupération des résultats (Libération
- *   de la mémoire allouée pour results).
  *
  * - main: Vérifier la compatibilité avec l'API existante.
  *
@@ -34,6 +27,7 @@ struct _options {
     bool reset;
     char *reset_timestamp;
     bool explain;
+    char *tag;
     char *variable;
     char *value;
 } options;
@@ -49,8 +43,15 @@ void help(char **argv){
 	       "                         multiple format are supported:\n"
 	       "                         * seconds since EPOC (date +%%s)\n"
 	       "                         * date Year-Month-Day (date +%%F)\n"
-	       "                         * date and time 'Y/M/D HH:MM:SS' (date +%%X)\n", argv[0]);
+	       "                         * date and time 'Y/M/D HH:MM:SS' (date +%%X)\n"
+	       "    -t --tag=<tag>:      Tag to identify variable type.\n", argv[0]);
 }
+
+/* 
+ * convert_timestamp
+ *
+ * convert timestamp argument to seconds since EPOC
+ * */
 
 time_t convert_timestamp(char *timestamp){
 	char *res;
@@ -88,9 +89,9 @@ int main(int argc, char **argv) {
 	struct timespec ts;
 	/*
 	 * Options à gérer:
-	 * -a: Donne l'ensemble des clefs/valeur de la base de donnée
+	 * -a: Donne l'ensemble des clefs/valeur de la base de donnée (getinfo)
 	 * -d <arg>: Répertoire info à utiliser (gestion du dbinfo) (GLOBAL_TMPDIR ou /tmp + SLURM_JOB_ID) Si ENVIRONMENT=BATCH
-	 * -e: ecriture sur stderr du résultat de la commande putinfo
+	 * -e: ecriture sur stderr du résultat de la commande (putinfo)
 	 * -r: purge complète si pas d'argument, et RAZ de la variable si un argument (reset)
 	 * */
 
@@ -102,10 +103,11 @@ int main(int argc, char **argv) {
 	    {"explain", no_argument, NULL, 'e'},
 	    {"help", no_argument, NULL, 'h'},
 	    {"reset", optional_argument, NULL, 'r'},
+	    {"tag", required_argument, NULL, 't'},
 	    {NULL, 0, NULL, 0}
 	};
 
-	while ((opt = getopt_long(argc, argv, "ad:Derh", long_options, NULL)) != -1)
+	while ((opt = getopt_long(argc, argv, "ad:Dert:h", long_options, NULL)) != -1)
 	{
 	    // check to see if a single character or long option came through
 	    switch (opt)
@@ -135,6 +137,10 @@ int main(int argc, char **argv) {
 		 case 'r':
 		     options.reset = true;
 		     options.reset_timestamp = optarg;
+		     break;
+		 // short option 't'
+		 case 't':
+		     options.tag = optarg;
 		     break;
 		 default:
 		     help(argv);
@@ -179,20 +185,29 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
+	/*Manage Tag for the entry*/
+	if (options.tag == NULL){
+		if ((options.tag = secure_getenv("TAGINFO")) == NULL)
+			options.tag = "none";
+	}
+	_log("main: chosen tag: %s\n", options.tag);
+
 	if (options.variable){
-		if (options.value)
-			putinfo(db, 1, options.variable, options.value, "INTER");
-		else
-			getinfo(db, 1, options.variable, "INTER");
+		if (options.value){
+			if (options.explain)
+				fprintf(stderr, "%s = %s", options.variable, options.value);
+			putinfo(db, options.variable, options.value, options.tag);
+		} else {
+			getinfo(db, options.variable, options.tag);
+		}
 	} else {
 		if (options.all)
-			getinfo(db, 1, "%", "INTER");
+			getinfo(db, "%", options.tag);
 		if (options.reset) {
-			/* convert ftime argument to seconds since EPOC */
 			if (options.reset_timestamp != NULL){
 				ts.tv_sec = convert_timestamp(options.reset_timestamp);
 				if (ts.tv_sec == -1){
-					perror("main: invalid timestamp format");
+					perror("main: timestamp format");
 					return 1;
 				}
 			} else {

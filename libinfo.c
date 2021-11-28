@@ -2,6 +2,22 @@
 
 int debug = 0;
 
+char * info_gettag(void){
+    char *tag;
+
+    if ((tag=secure_getenv("TAGINFO")) == NULL)
+        return "none";
+    return tag;
+}
+
+char * info_getdb(void){
+    char *dbfile;
+
+    if ((dbfile = secure_getenv("DBINFO")) == NULL)
+        dbfile = DBFILE;
+    return dbfile;
+}
+
 info * alloc_info(void){
 	info *inf;
 	inf = (info *) malloc(sizeof(info));

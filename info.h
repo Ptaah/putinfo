@@ -41,6 +41,16 @@ sqlite3 * open_db(char *dbfile);
 int cleanup(sqlite3 *db, struct timespec timestamp);
 sqlite3 * init_db(char *dbfile);
 
+/* info_getdb:
+ *
+ * get database filename location*/
+char * info_getdb(void);
+
+/* info_gettag:
+ *
+ * get default tag*/
+char * info_gettag(void);
+
 /*
 int  getinfo(char *nom, char* valeur)
 int  putinfo(char *nom, char* valeur)
@@ -49,6 +59,8 @@ int  putinfo(char *nom, char* valeur)
 #define _log(fmt, ...) \
         do { if (debug) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
                                 __LINE__, __func__, ##__VA_ARGS__); } while (0)
+/*Default database location*/
+#define DBFILE "/tmp/base.sqlite"
 
 extern int debug;
 #endif

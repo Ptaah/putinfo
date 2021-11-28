@@ -5,7 +5,6 @@
 #include <getopt.h>
 #include "info.h"
 
-#define DBFILE "/tmp/base.sqlite"
 
 
 
@@ -167,8 +166,7 @@ int main(int argc, char **argv) {
 		options.reset_timestamp, options.variable, options.value);
 
 	if (options.database == NULL){
-		if ((dbfile = secure_getenv("DBINFO")) == NULL)
-			dbfile = DBFILE;
+		dbfile = info_getdb();
 	} else {
 		dbfile = options.database;
 	}
@@ -187,8 +185,7 @@ int main(int argc, char **argv) {
 
 	/*Manage Tag for the entry*/
 	if (options.tag == NULL){
-		if ((options.tag = secure_getenv("TAGINFO")) == NULL)
-			options.tag = "none";
+		options.tag = info_gettag();
 	}
 	_log("main: chosen tag: %s\n", options.tag);
 

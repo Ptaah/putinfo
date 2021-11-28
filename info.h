@@ -53,4 +53,4 @@ int  putinfo(char *nom, char* valeur)
 extern int debug;
 #endif
 
-/*vim:noexpandtab:ts=8:sw=8*/
+// vim:noexpandtab:ts=8:sw=8

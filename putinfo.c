@@ -224,4 +224,4 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
-/*vim:noexpandtab:ts=8:sw=8*/
+// vim:noexpandtab:ts=8:sw=8

@@ -286,4 +286,4 @@ int  getinfo(char *nom, char* valeur)
 int  putinfo(char *nom, char* valeur)
 */
 
-/*vim:noexpandtab:ts=8:sw=8*/
+// vim:noexpandtab:ts=8:sw=8

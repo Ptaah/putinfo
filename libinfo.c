@@ -132,7 +132,7 @@ void print_results(info *result, bool all){
 	info *walk = result;
 	while (walk->next != NULL){
 		if (all)
-			printf("%s %s\n", walk->key, walk->value);
+			printf("%s=%s\n", walk->key, walk->value);
 		else
 			printf("%s\n", walk->value);
 		walk = walk->next;

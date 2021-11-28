@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
 
+#include <sys/ioctl.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -83,9 +85,11 @@ time_t convert_timestamp(char *timestamp){
 
 int main(int argc, char **argv) {
 	char opt;
-	char *dbfile = NULL;
+	char *dbfile = NULL, *decorator;
 	sqlite3 *db = NULL;
 	struct timespec ts;
+	int columns = 0, i;
+	struct winsize w;
 	/*
 	 * Options à gérer:
 	 * -a: Donne l'ensemble des clefs/valeur de la base de donnée (getinfo)
@@ -191,8 +195,30 @@ int main(int argc, char **argv) {
 
 	if (options.variable){
 		if (options.value){
-			if (options.explain)
-				fprintf(stderr, "%s = %s", options.variable, options.value);
+			if (options.explain){
+				if (ioctl(0, TIOCGWINSZ, &w) != -1)
+					columns = w.ws_col;
+				else
+					/*default terminal size*/
+					columns = 80;
+				if ((decorator = secure_getenv("CHARINFO")) == NULL)
+					decorator = "";
+				_log("main: columns: %d\n", columns);
+				if (decorator[0]){
+					for (i = 0 ; i < columns ; i++)
+						fprintf(stderr, "%c", decorator[0]);
+					fprintf(stderr, "\n");
+				}
+				fprintf(stderr, "%c %s = %s\n",
+						decorator[0],
+						options.variable,
+						options.value);
+				if (decorator[0]){
+					for (i = 0 ; i < columns ; i++)
+						fprintf(stderr, "%c", decorator[0]);
+					fprintf(stderr, "\n");
+				}
+			}
 			putinfo(db, options.variable, options.value, options.tag);
 		} else {
 			getinfo(db, options.variable, options.tag);
